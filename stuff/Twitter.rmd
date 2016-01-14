@@ -1,0 +1,87 @@
+---
+title: "Twitter Project Extension - Wordcloud of the most commonly tweeted Words"
+author: Dawit Tsigie & Thao Nguyen
+output: html_document
+runtime: shiny
+---
+For the extension, we wanted to find out what the most commonly tweeted words in each hour of the day are. We agreed that a word cloud would be a good representation of our data to answer the question at hand. 
+
+We implemented this extension by using various external packages:  tm, SnowballC, wordcloud and shiny. The first two (tm and SnowballC), which are natural language processing packages, were used to mine and sparse the text field of the tweets data frame into individual words. By using the packages we created a sparse data frame of words in the tweets where each column represented one word from the tweets and the rows represented how many times it occurs in a specific tweet. The order of this sparse data frame is the same as that of the tweets data frame. We chose the number of words to include in our sparse data frame to be the frequency of the words that show up at least a total of (1-0.9995)*[number of total tweets]. We chose this extemely low value(1) so as to get more data points from the limited texas tweets data which has only 1304 tweets.
+
+
+```{r }
+#source("extension.R")
+#sparse = removeSparseTerms(frequencies, 0.9995)
+#tweetsSparse = as.data.frame(as.matrix(sparse))
+
+```
+
+
+
+After we created this sparse data frame of words we proceeded to create a word cloud to visualize the words that occur most commonly. And finally to answer our inital question of what the frequncy of the words in tweets looks like over a 24 hour period we created a shiny app which has a slider with input of hours of the day, thereby enabling us to create 24 wordclouds each associated with the corresponding hour of the day.
+
+We extracted 700,000 tweets by using the internal sampling function from the provided data frame which included about 1.5 million tweets. We did this because of processing and memory limits we encountered when trying to execute the whole data frame.
+
+```{r }
+
+#tweetsDF = tweetsDF[sample(nrow(tweetsDF), 700000), ]
+
+```
+
+
+
+For the implementation of the extension, we had to convert time(which we initially converted to a date-time object usings strptime function) to the local time zone. To do this, we had to download a dataset which described the timezones for each of the states in the USA. Some states have more than one timezones as indicated by the dataset but we decided to just use the primary timezone for that state. So we merged the dataset we acquired with the tweets data frame by state, thereby appending the corresponding GMT offset needed to calculate the local timezone for each tweets 
+
+```{r }
+#tweetsSparse$HOUR = tweetsDF$localTime$hour
+
+```
+
+
+Our extension helps us visualize what word is tweeted most at which hours of the day. By making this visualization we can see that people tend to tweet certain words more at specific times of the day. 
+
+```{r echo =FALSE}
+      #Slide bar w/ input for the hour range
+  load("tweetsSparseTexas.rda")
+  library(tm)
+  library(SnowballC)
+  library(wordcloud)
+  library(RColorBrewer)
+  library(stringr)
+  inputPanel(
+      sliderInput("hour","Select hour of the day:",
+                  min=0, max=23,value=12)
+    )
+```
+
+```{r echo =FALSE}  
+
+   renderPlot({
+    
+    #Subset the data by hour and create a frequency dataframe to plot the word cloud
+   
+    hourFreq = subset(tweetsSparse,HOUR == input$hour, select= -c(HOUR,amp))
+    freq = apply(hourFreq,2,sum)
+    popularity = sort(freq,decreasing=TRUE)
+    freqDF = data.frame(popularity)
+    
+    
+    #Create a word cloud based on hour$HOUR
+    pal2 <- brewer.pal(8,"Dark2")
+    wordcloud(row.names(freqDF),freqDF$popularity, scale=c(4,.01),min.freq=1,
+              max.words=Inf, random.order=FALSE, rot.per=.15, colors=pal2)
+    
+  })
+
+
+```
+
+From the word clouds above we can see that for tweets that include texas, roadhouse, for instance is texted more often around lunch and dinner times which could indicate people tweeting about the restaurant Texas Roadhouse. Another word that is most commonly tweeted around the evening hours is 'Love'. This could indicate that people tend to tweet about something they like or someone when they are offwork or are in the privacy of their homes as most people would probably be at home at night. From this graph we can easily see which words are most commonly included in times at specific hours of the day.
+
+As we see below we donnot have data points between 3 pm and 7 pm. This problem occured because times at which the tweets were collectedwas not over the whole 24 hours of the day.
+
+```{r echo =FALSE} 
+
+table(tweetsSparse$HOUR)
+
+```
